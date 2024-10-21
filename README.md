@@ -121,9 +121,3 @@ Contributions are welcome! Please follow these steps for submitting pull request
 3. Commit your changes (`git commit -m 'Add new feature'`).
 4. Push to the branch (`git push origin feature/NewFeature`).
 5. Open a pull request.
-
----
-
-### Notes
-
-Feel free to customize this template based on the specific features of your VarLogger project. You can add more sections like **FAQ**, **Future Features**, or **Known Issues** if applicable. Adding images, schematics, or videos can also make the README more engaging and informative.
