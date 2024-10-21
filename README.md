@@ -73,14 +73,14 @@
 
 1. **Logging to SD card**:
    - After uploading, the Arduino will start logging data to the SD card.
-   - The data is stored in `data.csv` in the format `timestamp,temperature,humidity,pressure,...`.
+   - The data is stored in `data.csv` in the format `event_id,timestamp`.
    
 2. **Real-time Serial Monitoring**:
    - Open the Serial Monitor (Ctrl + Shift + M) in the Arduino IDE to view real-time data readings.
-   - You can adjust the logging interval in the `VarLogger.ino` file by modifying the `LOG_INTERVAL` variable.
+   - You can adjust the logging interval in the `maincode.ino` file by modifying the `LOG_INTERVAL` variable.
 
 3. **Configuring Sensors**:
-   - You can easily add or remove sensors by modifying the `VarLogger.ino` code. Instructions on sensor initialization and data retrieval are provided in the comments within the code.
+   - You can easily add or remove sensors by modifying the `maincode.ino` code. Instructions on sensor initialization and data retrieval are provided in the comments within the code.
 
 ---
 
