@@ -1,22 +1,14 @@
 # VarLogger
 
 ## 📑 Table of Contents
-✨ Features
-
-🔧 Hardware Requirements
-
-💻 Software Requirements
-
-⚙️ Installation
-
-🚀 Usage
-
-💡 Examples
-
-🛠 Troubleshooting
-
-🤝 Contributing
-
+- [✨ Features](#-features)
+- [🔧 Hardware Requirements](#-hardware-requirements)
+- [💻 Software Requirements](#-software-requirements)
+- [⚙️ Installation](#-installation)
+- [🚀 Usage](#-usage)
+- [💡 Examples](#-examples)
+- [🛠 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
 ---
 
 ## ✨ Features
