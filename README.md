@@ -46,8 +46,6 @@
 - [Arduino IDE](https://www.arduino.cc/en/software)
 - Arduino Libraries:
   - [SD](https://www.arduino.cc/en/Reference/SD) for SD card functionality
-  - [DHT](https://github.com/adafruit/DHT-sensor-library) for DHT11/DHT22 sensor
-  - [Adafruit BMP280](https://github.com/adafruit/Adafruit_BMP280_Library) for BMP280 sensor
 - Serial Monitor or any Serial Terminal (for live data viewing)
 
 ---
@@ -59,12 +57,11 @@
     git clone https://github.com/yourusername/VarLogger.git
     ```
 2. **Open the project in Arduino IDE**:
-    - File → Open → Select the `VarLogger.ino` file from the cloned repository.
+    - File → Open → Select the `maincode.ino` file from the cloned repository.
 3. **Install required libraries**:
     - In Arduino IDE, go to Sketch → Include Library → Manage Libraries.
-    - Search for and install the necessary libraries like `DHT`, `SD`, and `Adafruit BMP280`.
+    - Search for and install the necessary libraries.
 4. **Connect your hardware**:
-    - Follow the connection diagram (provide a diagram or description in this section).
     - Make sure all sensors and SD card modules are properly wired.
 5. **Upload the code**:
     - Select your board and port in Tools → Board/Port.
