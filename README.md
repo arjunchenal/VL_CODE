@@ -6,17 +6,16 @@
 - [💻 Software Requirements](#-software-requirements)
 - [⚙️ Installation](#-installation)
 - [🚀 Usage](#-usage)
-- [💡 Examples](#-examples)
 - [🛠 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
 ---
 
 ## ✨ Features
 
+- Event trace for logging entire application code run check.
 - Records multiple sensor data (e.g., temperature, humidity, pressure).
 - Logs data to an SD card in CSV format.
 - Serial communication for real-time data transmission.
-- Compatible with a wide range of sensors (DHT11, BMP280, etc.).
 - Adjustable logging intervals.
 - Battery-powered support for remote logging.
 - Simple configuration via Arduino IDE.
@@ -25,11 +24,8 @@
 
 ## 🔧 Hardware Requirements
 
-- Arduino (e.g., Arduino Uno, Mega, or any compatible board)
-- Sensors (depending on what you want to log, e.g.):
-  - **DHT11/DHT22** - Temperature & Humidity Sensor
-  - **BMP280** - Temperature & Pressure Sensor
-  - **Light Sensor** (optional)
+- Arduino (e.g., Arduino Uno, Nano, or any compatible board)
+- Sensors (depending on what you want to log)
 - SD card module for data storage
 - Battery or external power source (optional for portable use)
 - Jumper wires and breadboard for prototyping
@@ -76,19 +72,6 @@
 
 3. **Configuring Sensors**:
    - You can easily add or remove sensors by modifying the `maincode.ino` code. Instructions on sensor initialization and data retrieval are provided in the comments within the code.
-
----
-
-## 💡 Examples
-
-- **Temperature and Humidity Logging**:
-   - Setup with the **DHT11** sensor.
-   - Logs data every 5 seconds to an SD card.
-   - Displays temperature and humidity readings on the serial monitor.
-   
-- **Multi-sensor Logging**:
-   - Setup with **DHT11** and **BMP280** sensors.
-   - Logs temperature, humidity, and pressure data every 10 seconds.
 
 ---
 
