@@ -1,21 +1,25 @@
 # VarLogger
 
+## 📑 Table of Contents
+✨ Features
 
+🔧 Hardware Requirements
 
-## Table of Contents
+💻 Software Requirements
 
-- [Features](#features)
-- [Hardware Requirements](#hardware-requirements)
-- [Software Requirements](#software-requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+⚙️ Installation
+
+🚀 Usage
+
+💡 Examples
+
+🛠 Troubleshooting
+
+🤝 Contributing
 
 ---
 
-## Features
+## ✨ Features
 
 - Records multiple sensor data (e.g., temperature, humidity, pressure).
 - Logs data to an SD card in CSV format.
@@ -27,7 +31,7 @@
 
 ---
 
-## Hardware Requirements
+## 🔧 Hardware Requirements
 
 - Arduino (e.g., Arduino Uno, Mega, or any compatible board)
 - Sensors (depending on what you want to log, e.g.):
@@ -40,7 +44,7 @@
 
 ---
 
-## Software Requirements
+## 💻 Software Requirements
 
 - [Arduino IDE](https://www.arduino.cc/en/software)
 - Arduino Libraries:
@@ -49,7 +53,7 @@
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 1. **Clone the repository**:
     ```bash
@@ -68,7 +72,7 @@
 
 ---
 
-## Usage
+## 🚀 Usage
 
 1. **Logging to SD card**:
    - After uploading, the Arduino will start logging data to the SD card.
@@ -83,7 +87,7 @@
 
 ---
 
-## Examples
+## 💡 Examples
 
 - **Temperature and Humidity Logging**:
    - Setup with the **DHT11** sensor.
@@ -96,7 +100,7 @@
 
 ---
 
-## Troubleshooting
+## 🛠 Troubleshooting
 
 1. **SD card not detected**:
    - Make sure the CS pin in your code matches the wiring.
@@ -112,7 +116,7 @@
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps for submitting pull requests:
 
