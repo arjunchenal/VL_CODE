@@ -1,72 +1,76 @@
 #include "VarLogger.h"
+#include <fstream>
+#include <iostream>
 #include <string>
-#include <sstream>
+#include <vector>
 #include <unordered_map>
 #include <cstring>
-
+#include <sstream>
+#include <ArduinoJson.h>
+#include <SD.h>
+#include <SPI.h>
+#include <mutex>
 
 int VarLogger::buffer_select = 1;
 int VarLogger::save_buffer = 0;
 int VarLogger::buffer_index = 0;
-std::vector<std::pair<int, unsigned long>> VarLogger::buffer1;
-std::vector<std::pair<int, unsigned long>> VarLogger::buffer2;
-unsigned long VarLogger::created_timestamp = 0;
+unsigned long VarLogger::created_timestamp = millis();
 unsigned long VarLogger::time_to_write = 0;
+std::map<int, std::vector<std::pair<unsigned long, int>>> VarLogger::data_dict;
+std::map<std::string, int> VarLogger::_vardict;
+std::map<std::string, int> VarLogger::_thread_map;
+std::map<std::string, std::string> VarLogger::threads_info;
+
+std::vector<std::pair<int, unsigned long>> VarLogger::data1(TRACE_LENGTH, {0, 0});
+std::vector<std::pair<int, unsigned long>> VarLogger::data2(TRACE_LENGTH, {0, 0});
+
 int VarLogger::prev1_event = -1;
 int VarLogger::prev2_event = -1;
 unsigned long VarLogger::prev1_time = 0;
 unsigned long VarLogger::prev2_time = 0;
-int VarLogger::data1[TRACE_LENGTH][2] = {0};
-int VarLogger::data2[TRACE_LENGTH][2] = {0};
-std::unordered_map<std::string, int> VarLogger::_vardict;
-int VarLogger::num_vars = 0;
 int VarLogger::_write_count = 0;
+std::string VarLogger::write_name = "log0";
+std::string VarLogger::trace_name = "trace0";
+int VarLogger::cur_file = 0;
 
-void VarLogger::init() {
-    created_timestamp = millis();
-    time_to_write = 0;
-    buffer_select = 1;
-    save_buffer = 0;
-    buffer_index = 0;
-    _write_count = 0;
-    prev1_event = -1;
-    prev2_event = -1;
-    prev1_time = 0;
-    prev2_time = 0;
-    num_vars = 0;
-    _vardict.clear();
+std::mutex buffer_mutex;
+const unsigned long flushInterval = 5000;
+unsigned long last_flush_time = millis();
+bool VarLogger::sdInitialized = false;
+
+bool VarLogger::initializeSDCard(int csPin) {
+    if (!SD.begin(csPin)) {
+        Serial.println("SD Card initialization failed!");
+        sdInitialized = false;
+        return false;
+    }
+    Serial.println("SD Card initialized successfully.");
+    sdInitialized = true;
+    return true;
 }
 
-void VarLogger::log(const char* var, const char* fun, const char* clas, const char* th, int val, bool save) {
-
-    std::string thread_str(th);
-    std::string class_str(clas);
-    std::string func_str(fun);
-    std::string var_str(var);
-
-    std::stringstream event_stream;
-    event_stream << thread_str << "-" << class_str << "-" << func_str << "-" << var_str;
-    std::string event = event_stream.str();
-
-    int event_num = var2int(event);
+void VarLogger::log(std::string var, std::string fun, std::string clas, std::string th, int val, bool save) {
     unsigned long log_time = millis() - created_timestamp - time_to_write;
+    int event_num = _var2int(th + "-" + clas + "-" + fun + "-" + var);
 
-    //log the sequence to trace file, but only unique events and avoid duplicates
+    std::lock_guard<std::mutex> lock(buffer_mutex);
+
     if (prev1_event != event_num) {
-        log_seq(event_num, log_time);
+        logSeq(event_num, log_time);
         _write_count++;
     }
 
-    if (_write_count >= TRACE_LENGTH && !save) {
-          _write_count = 0;
-          //write_data();
-          unsigned long start_time = millis();
-          time_to_write += millis() - start_time;
-          Serial.print("Write time: ");
-          Serial.println(time_to_write);
-          memset(data1, 0, sizeof(data1));  //garbage collection by clearing buffers setting to empty
-          memset(data2, 0, sizeof(data2));
+    if (_write_count >= TRACE_LENGTH && save != false) {
+        _write_count = 0;
+        unsigned long start_time = millis();
+        writeData();
+        time_to_write += millis() - start_time;
+        data1.clear();
+    }
 
+    if(millis() - last_flush_time >= flushInterval) {
+      flush();
+      last_flush_time = millis();
     }
 
     prev2_event = prev1_event;
@@ -75,112 +79,160 @@ void VarLogger::log(const char* var, const char* fun, const char* clas, const ch
     prev1_time = log_time;
 }
 
-int VarLogger::var2int(const std::string& var) {
-    if(_vardict.find(var) == _vardict.end()) {      //When the item is not present in dictionary, we add them to dictionary
-      _vardict[var] = _vardict.size();
+int VarLogger::_var2int(std::string var) {
+    if (_vardict.find(var) == _vardict.end()) {
+        _vardict[var] = _vardict.size();
     }
     return _vardict[var];
 }
 
-std::string VarLogger::int2var(int num) {
-  for(const auto& val : _vardict) {
-    if(val.second == num) {
-      return val.first;
+std::string VarLogger::_int2var(int num) {
+    for (auto &it : _vardict) {
+        if (it.second == num) {
+            return it.first;
+        }
     }
-  }
-  return "";  //empty string returned if no match found
+    return "";
 }
 
-void VarLogger::log_seq(int event, unsigned long log_time) {
-    // Serial.print("Logging event: ");
-    // Serial.print(int2var(event).c_str());
-    // Serial.print(" at time: ");
-    // Serial.println(log_time);
+void VarLogger::logSeq(int event, unsigned long log_time) {
     if (buffer_select == 1) {
-        if (buffer_index == TRACE_LENGTH - 1) {       //Checking if buffer is full, if full then switch to buffer 2
-            data1[buffer_index][0] = event;
-            data1[buffer_index][1] = log_time;
+        if (buffer_index == TRACE_LENGTH - 1) {
+            data1[buffer_index] = {event, log_time};
             buffer_select = 2;
             save_buffer = 1;
             buffer_index = 0;
-        } 
-        else if (buffer_index == 0) {                 //Initializing the buffer if empty
-            std::memset(data1, 0, sizeof(data1));     //allocating zeros to buffer
-            size_t used_memory = sizeof(data1);
-            std::cout << "Memory used by buffer1: " << used_memory << " bytes" << std::endl;
-            data1[0][0] = event;
-            data1[0][1] = log_time;
-            buffer_index++;
-        } 
-        else {
-            data1[buffer_index][0] = event;
-            data1[buffer_index][1] = log_time;
-            buffer_index++;
+        } else {
+            data1[buffer_index++] = {event, log_time};
         }
-
-    } else if (buffer_select == 2) {
-        if (buffer_index == TRACE_LENGTH - 1) {     //Checking if buffer is full, if yes switch to buffer 1
-            data2[buffer_index][0] = event;
-            data2[buffer_index][1] = log_time;
+    } else {
+        if (buffer_index == TRACE_LENGTH - 1) {
+            data2[buffer_index] = {event, log_time};
             buffer_select = 1;
             save_buffer = 2;
             buffer_index = 0;
-        } 
-        else if (buffer_index == 0) {
-            std::memset(data2, 0, sizeof(data2));
-            size_t used_memory = sizeof(data2);
-            std::cout << "Memory used by buffer2: " << used_memory << " bytes" << std::endl;
-            data2[0][0] = event;
-            data2[0][1] = log_time;
-            buffer_index++;
-        } 
-        else {
-            data2[buffer_index][0] = event;
-            data2[buffer_index][1] = log_time;
-            buffer_index++;
+        } else {
+            data2[buffer_index++] = {event, log_time};
         }
     }
 }
 
-void VarLogger::print_buffers() {
-    Serial.println("Data1 Buffer Contents:");
-    for (int i = 0; i < TRACE_LENGTH; i++) {
-        if (data1[i][0] != 0 || data1[i][1] != 0) { 
-            Serial.print("Index ");
-            Serial.print(i);
-            Serial.print(": (");
-            Serial.print(data1[i][0]);
-            Serial.print(", ");
-            Serial.print(data1[i][1]);
-            Serial.println(")");
-        }
+void VarLogger::generateFileNames() {
+    while (SD.exists("/trace" + String(cur_file) + ".txt")) {
+        cur_file++;
+    }
+    trace_name = "trace" + String(cur_file);
+    write_name = "log" + String(cur_file);
+}
+
+
+void VarLogger::writeData() {
+    if (!sdInitialized) {
+        Serial.println("SD Card not initialized!");
+        return;
     }
 
-    Serial.println("Data2 Buffer Contents:");
-    for (int i = 0; i < TRACE_LENGTH; i++) {
-        if (data2[i][0] != 0 || data2[i][1] != 0) {  
-            Serial.print("Index ");
-            Serial.print(i);
-            Serial.print(": (");
-            Serial.print(data2[i][0]);
-            Serial.print(", ");
-            Serial.print(data2[i][1]);
-            Serial.println(")");
+    int retries = 3;  
+    bool writeSuccess = false;
+
+    std::lock_guard<std::mutex> lock(buffer_mutex);
+
+    while(retries > 0 && !writeSuccess) {
+      File traceFile = SD.open("/" + trace_name + ".txt", FILE_WRITE);
+      if (traceFile) {
+          StaticJsonDocument<1024> jsonDoc;
+          if (save_buffer == 1) {
+              for (auto &entry : data1) {
+                  JsonArray array = jsonDoc.createNestedArray();
+                  array.add(entry.first);
+                  array.add(entry.second);
+              }
+              serializeJson(jsonDoc, traceFile);
+              save_buffer = 0;
+          } else if (save_buffer == 2) {
+              for (auto &entry : data2) {
+                  JsonArray array = jsonDoc.createNestedArray();
+                  array.add(entry.first);
+                  array.add(entry.second);
+              }
+              serializeJson(jsonDoc, traceFile);
+              save_buffer = 0;
+          }
+          traceFile.close();
+          writeSuccess = true;
+      } else {
+        Serial.println("Error writing trace file, retrying...");
+        retries--;
+        delay(100);
+      }
+    }
+
+    if(!writeSuccess) {
+      Serial.println("Failed to write trace file after 3 attempts");
+      return;
+    }
+
+    retries = 3;
+    writeSuccess = false;
+
+    while(retries > 0 && !writeSuccess) {
+      File varFile = SD.open("/varlist" + std::string(cur_file) + ".txt", FILE_WRITE);
+      if (varFile) {
+          StaticJsonDocument<1024> jsonDoc;
+          for (auto &entry : _vardict) {
+              jsonDoc[entry.first] = entry.second;
+          }
+          serializeJson(jsonDoc, varFile);
+          varFile.close();
+          writeSuccess = true;
+      } else {
+        Serial.println("Error writing varlist file, retrying...");
+        retries--;
+        delay(100);
+      }
+    }
+
+    if(!writeSuccess) {
+      Serial.println("Failed to write varlist file after 3 attempts.");
+      return;
+    }
+    cur_file++;
+    generateFileNames(); //For getting the next trace and log file names
+}
+
+void VarLogger::flush() {
+  writeData();
+}
+
+void VarLogger::save() {
+    writeData();
+}
+
+void VarLogger::threadStatus(std::string thread_id, std::string status) {
+    if (status != "" && thread_id != "") {
+        threads_info[thread_id] = status;
+        if (_thread_map.find(thread_id) == _thread_map.end()) {
+            _thread_map[thread_id] = _thread_map.size();
         }
     }
 }
 
+int VarLogger::mapThread(std::string thread_id) {
+    if (_thread_map.find(thread_id) == _thread_map.end()) {
+        return -1; 
+    }
+    return _thread_map[thread_id];
+}
 
+void VarLogger::traceback(std::string exc) {
+    if (!SD.begin()) {
+        return;
+    }
 
-// void VarLogger::write_data() {
-//     // Write the data to flash
-//     Serial.println("Writing data to flash...");
-//     for (int i = 0; i < TRACE_LENGTH; i++) {
-//         Serial.print("Data1[");
-//         Serial.print(i);
-//         Serial.print("]: (");
-//         Serial.print(data1[i][0]);
-//         Serial.print(", ");
-//         Serial.println(data1[i][1]);
-//     }
-// }
+    File traceFile = SD.open("/traceback.txt", FILE_APPEND);
+    if (traceFile) {
+        traceFile.println(std::string(millis()) + ": Exception - " + exc);
+        traceFile.close();
+    }
+}
+
