@@ -1,6 +1,5 @@
 # VarLogger
 
-**VarLogger** is an Arduino-based data logger that records sensor readings for variables such as temperature, humidity, pressure, and more. It allows you to store data on an SD card or transmit it via serial communication for real-time monitoring. This project is perfect for environmental monitoring, scientific experiments, or DIY home automation systems.
 
 
 ## Table of Contents
