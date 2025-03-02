@@ -10,6 +10,8 @@
 #include <iostream>
 #include <SD.h>
 #include <SPI.h>
+#include <map>
+#include <mutex>
 
 class VarLogger {
 public:
@@ -39,7 +41,7 @@ public:
 
     static bool sd_initialized(int csPin);
     static void init();
-    static void log(const char* var, const char* fun, const char* clas, const char* th, int val = 0, bool save = false);
+    static void log(const char* var, const char* fun, const char* clas, const char* th, int val, bool save);
     static void save();
 
     //For thread
@@ -49,7 +51,7 @@ public:
 
 
 private:
-    static int var2int(const std::string& var);
+    static int _var2int(const std::string& var);
     static void log_seq(int event, unsigned long log_time);
     static void write_data();
     static std::string int2var(int num);

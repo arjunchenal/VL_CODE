@@ -26,16 +26,16 @@ void loop() {
 
     // Log the LED state
     //VarLogger::log("LED", "loop", "main", "thread1", ledState);
-    VarLogger::log("testVar1", "loop", "main", "thread1", testVar1);
-    VarLogger::log("testVar2", "loop", "main", "thread1", testVar2);    
-    VarLogger::log("testVar3", "loop", "main", "thread1", testVar3);    
+    VarLogger::log("testVar1", "loop", "main", "thread1", testVar1, true);
+    VarLogger::log("testVar2", "loop", "main", "thread1", testVar2, true);
+    VarLogger::log("testVar3", "loop", "main", "thread1", testVar3, true); 
 
     int randomValue = random(0, 50);  //To test a random sensor reading
-    VarLogger::log("randomValue", "loop", "main", "thread1", randomValue);
+    VarLogger::log("randomValue", "loop", "main", "thread1", randomValue,true);
 
 
     if (testVar1 % 10 == 0) {
-        VarLogger::print_buffers();
+        VarLogger::save();
     }
 
     delay(1000);  // Wait for 1 second

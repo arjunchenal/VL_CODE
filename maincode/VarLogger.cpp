@@ -9,7 +9,6 @@
 #include <ArduinoJson.h>
 #include <SD.h>
 #include <SPI.h>
-#include <mutex>
 
 int VarLogger::buffer_select = 1;
 int VarLogger::save_buffer = 0;
@@ -33,12 +32,18 @@ std::string VarLogger::write_name = "log0";
 std::string VarLogger::trace_name = "trace0";
 int VarLogger::cur_file = 0;
 
-std::mutex buffer_mutex;
+// std::mutex buffer_mutex;
 const unsigned long flushInterval = 5000;
 unsigned long last_flush_time = millis();
 bool VarLogger::sdInitialized = false;
 
-bool VarLogger::initializeSDCard(int csPin) {
+
+void VarLogger::init() {
+  Serial.println("Varlogger initialized");
+}
+
+
+bool VarLogger::sd_initialized(int csPin) {
     if (!SD.begin(csPin)) {
         Serial.println("SD Card initialization failed!");
         sdInitialized = false;
@@ -49,21 +54,21 @@ bool VarLogger::initializeSDCard(int csPin) {
     return true;
 }
 
-void VarLogger::log(std::string var, std::string fun, std::string clas, std::string th, int val, bool save) {
+void VarLogger::log(const char* var, const char* fun, const char* clas, const char* th, int val, bool save) {
     unsigned long log_time = millis() - created_timestamp - time_to_write;
-    int event_num = _var2int(th + "-" + clas + "-" + fun + "-" + var);
+    int event_num = _var2int(std::string(th) + "-" + std::string(clas) + "-" + std::string(fun) + "-" + std::string(var));
 
-    std::lock_guard<std::mutex> lock(buffer_mutex);
+    // std::lock_guard<std::mutex> lock(buffer_mutex);
 
     if (prev1_event != event_num) {
-        logSeq(event_num, log_time);
+        log_seq(event_num, log_time);
         _write_count++;
     }
 
     if (_write_count >= TRACE_LENGTH && save != false) {
         _write_count = 0;
         unsigned long start_time = millis();
-        writeData();
+        write_data();
         time_to_write += millis() - start_time;
         data1.clear();
     }
@@ -79,14 +84,14 @@ void VarLogger::log(std::string var, std::string fun, std::string clas, std::str
     prev1_time = log_time;
 }
 
-int VarLogger::_var2int(std::string var) {
+int VarLogger::_var2int(const std::string& var) {
     if (_vardict.find(var) == _vardict.end()) {
         _vardict[var] = _vardict.size();
     }
     return _vardict[var];
 }
 
-std::string VarLogger::_int2var(int num) {
+std::string VarLogger::int2var(int num) {
     for (auto &it : _vardict) {
         if (it.second == num) {
             return it.first;
@@ -95,7 +100,7 @@ std::string VarLogger::_int2var(int num) {
     return "";
 }
 
-void VarLogger::logSeq(int event, unsigned long log_time) {
+void VarLogger::log_seq(int event, unsigned long log_time) {
     if (buffer_select == 1) {
         if (buffer_index == TRACE_LENGTH - 1) {
             data1[buffer_index] = {event, log_time};
@@ -121,12 +126,13 @@ void VarLogger::generateFileNames() {
     while (SD.exists("/trace" + String(cur_file) + ".txt")) {
         cur_file++;
     }
-    trace_name = "trace" + String(cur_file);
-    write_name = "log" + String(cur_file);
+    trace_name = "trace" + std::to_string(cur_file);
+    write_name = "log" + std::to_string(cur_file);
+
 }
 
-
-void VarLogger::writeData() {
+//For SD card, writing into a file and saving them
+void VarLogger::write_data() {
     if (!sdInitialized) {
         Serial.println("SD Card not initialized!");
         return;
@@ -135,10 +141,10 @@ void VarLogger::writeData() {
     int retries = 3;  
     bool writeSuccess = false;
 
-    std::lock_guard<std::mutex> lock(buffer_mutex);
+    // std::lock_guard<std::mutex> lock(buffer_mutex);
 
     while(retries > 0 && !writeSuccess) {
-      File traceFile = SD.open("/" + trace_name + ".txt", FILE_WRITE);
+      File traceFile = SD.open(("/" + trace_name + ".txt").c_str(), FILE_WRITE);
       if (traceFile) {
           StaticJsonDocument<1024> jsonDoc;
           if (save_buffer == 1) {
@@ -176,7 +182,7 @@ void VarLogger::writeData() {
     writeSuccess = false;
 
     while(retries > 0 && !writeSuccess) {
-      File varFile = SD.open("/varlist" + std::string(cur_file) + ".txt", FILE_WRITE);
+      File varFile = SD.open(("/varlist" + std::to_string(cur_file) + ".txt").c_str(), FILE_WRITE);
       if (varFile) {
           StaticJsonDocument<1024> jsonDoc;
           for (auto &entry : _vardict) {
@@ -201,11 +207,11 @@ void VarLogger::writeData() {
 }
 
 void VarLogger::flush() {
-  writeData();
+  write_data();
 }
 
 void VarLogger::save() {
-    writeData();
+    write_data();
 }
 
 void VarLogger::threadStatus(std::string thread_id, std::string status) {
@@ -229,10 +235,14 @@ void VarLogger::traceback(std::string exc) {
         return;
     }
 
-    File traceFile = SD.open("/traceback.txt", FILE_APPEND);
+    File traceFile = SD.open("/traceback.txt", FILE_WRITE);
     if (traceFile) {
-        traceFile.println(std::string(millis()) + ": Exception - " + exc);
+        traceFile.seek(traceFile.size());  // Move to the end of the file
+        traceFile.println((std::to_string(millis()) + ": Exception - " + exc).c_str());
         traceFile.close();
+    } else {
+        Serial.println("Error opening traceback.txt for appending.");
     }
 }
+
 
