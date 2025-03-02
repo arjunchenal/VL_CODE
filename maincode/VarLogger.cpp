@@ -10,6 +10,14 @@
 #include <SD.h>
 #include <SPI.h>
 
+
+
+
+#include <fstream>
+#include <iostream>
+#include <thread>
+#include <chrono>
+
 int VarLogger::buffer_select = 1;
 int VarLogger::save_buffer = 0;
 int VarLogger::buffer_index = 0;
@@ -154,7 +162,11 @@ void VarLogger::write_data() {
                   array.add(entry.second);
               }
               serializeJson(jsonDoc, traceFile);
+              traceFile.close();
+              data1.clear();
+              data1.resize(TRACE_LENGTH, {0, 0}); //Reinitialize to trace length
               save_buffer = 0;
+              writeSuccess = true;
           } else if (save_buffer == 2) {
               for (auto &entry : data2) {
                   JsonArray array = jsonDoc.createNestedArray();
@@ -162,10 +174,15 @@ void VarLogger::write_data() {
                   array.add(entry.second);
               }
               serializeJson(jsonDoc, traceFile);
+              traceFile.close();
+              data2.clear();
+              data2.resize(TRACE_LENGTH, {0, 0}); //Reinitialize to trace length
               save_buffer = 0;
+              writeSuccess = true;
+          } else {
+            traceFile.close();
+            writeSuccess = true;
           }
-          traceFile.close();
-          writeSuccess = true;
       } else {
         Serial.println("Error writing trace file, retrying...");
         retries--;
@@ -205,6 +222,7 @@ void VarLogger::write_data() {
     cur_file++;
     generateFileNames(); //For getting the next trace and log file names
 }
+
 
 void VarLogger::flush() {
   write_data();
