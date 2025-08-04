@@ -15,7 +15,7 @@
 
 class VarLogger {
 public:
-    static const int TRACE_LENGTH = 500;
+    static const int TRACE_LENGTH = 10;
     static int buffer_select;                                                               // 1 for data1, 2 for data2
     static int save_buffer;                                                                 // 1 for data1, 2 for data2, 0 for none
     static int buffer_index;
@@ -48,7 +48,7 @@ public:
     static void traceback(std::string exc);
     static void threadStatus(std::string thread_id, std::string status);
     static int mapThread(std::string thread_id);
-
+    static void flush();
 
 private:
     static int _var2int(const std::string& var);
@@ -56,7 +56,7 @@ private:
     static void write_data();
     static std::string int2var(int num);
     static void generateFileNames();
-    static void flush();
+    
 
 };
 

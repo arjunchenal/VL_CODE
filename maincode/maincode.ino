@@ -1,42 +1,56 @@
 #include <Arduino.h>
-#include "VarLogger.h"  // Include the VarLogger class
+#include "VarLogger.h"
 
-const int ledPin = 13; // Pin connected to the LED
-int ledState = LOW;    // State of the LED
+const int ledPin = 13;
 
-//for testing
-int testVar1 = 0;
-int testVar2 = 100;
-int testVar3 = 200;
-
+int temperature = 25;
+int humidity = 50;
+int pressure = 1000;
+int counter = 0;
+int specialEvent = 0;
 
 void setup() {
-    Serial.begin(9600);
-    pinMode(ledPin, OUTPUT);  // Set the pin mode for LED
-    VarLogger::init();        // Initialize the logger
+  Serial.begin(115200);
+  pinMode(ledPin, OUTPUT);
+  VarLogger::init();
+
+  if (!VarLogger::sd_initialized(10)) {
+    Serial.println("SD initialization failed");
+    while (1)
+      ;
+  }
 }
 
 void loop() {
-    testVar1++;
-    testVar2--;
-    testVar3--;
-    // Toggle the LED state
-    ledState = !ledState;
-    digitalWrite(ledPin, ledState);
+  temperature = 20 + random(-3, 4);   // temp
+  humidity = 40 + random(-5, 5);      // humidity
+  pressure = 1000 + random(-10, 10);  // pressure
+  counter++;
+  specialEvent += random(0, 3);
 
-    // Log the LED state
-    //VarLogger::log("LED", "loop", "main", "thread1", ledState);
-    VarLogger::log("testVar1", "loop", "main", "thread1", testVar1, true);
-    VarLogger::log("testVar2", "loop", "main", "thread1", testVar2, true);
-    VarLogger::log("testVar3", "loop", "main", "thread1", testVar3, true); 
+  digitalWrite(ledPin, (counter % 2) ? HIGH : LOW);
 
-    int randomValue = random(0, 50);  //To test a random sensor reading
-    VarLogger::log("randomValue", "loop", "main", "thread1", randomValue,true);
+  VarLogger::log("temperature", "loop", "sensor", "thread1", temperature, true);
+  VarLogger::log("humidity", "loop", "sensor", "thread1", humidity, true);
+  VarLogger::log("pressure", "loop", "sensor", "thread1", pressure, true);
 
+  VarLogger::log("counter", "loop", "system", "thread2", counter, true);
+  VarLogger::log("specialEvent", "loop", "system", "thread2", specialEvent, true);
 
-    if (testVar1 % 10 == 0) {
-        VarLogger::save();
-    }
+  VarLogger::log("randomValue", "loop", "simulator", "thread3", random(0, 100), true);
 
-    delay(1000);  // Wait for 1 second
+  if (counter % 15 == 0) {
+    VarLogger::log("milestoneEvent", "loop", "system", "thread4", random(1000, 2000), true);
+    Serial.println("[INFO] Milestone event logged");
+  }
+
+  if (counter == 200) {
+    Serial.println("\nTesting complete. Flushing any remaining data");
+    VarLogger::flush();
+    Serial.println("Data flushed. Stop");
+    while (1)
+      ;
+  }
+
+  delay(300);
 }

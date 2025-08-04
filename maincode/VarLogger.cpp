@@ -10,11 +10,6 @@
 #include <SD.h>
 #include <SPI.h>
 
-
-
-
-#include <fstream>
-#include <iostream>
 #include <thread>
 #include <chrono>
 
@@ -40,16 +35,13 @@ std::string VarLogger::write_name = "log0";
 std::string VarLogger::trace_name = "trace0";
 int VarLogger::cur_file = 0;
 
-// std::mutex buffer_mutex;
 const unsigned long flushInterval = 5000;
 unsigned long last_flush_time = millis();
 bool VarLogger::sdInitialized = false;
 
-
 void VarLogger::init() {
   Serial.println("Varlogger initialized");
 }
-
 
 bool VarLogger::sd_initialized(int csPin) {
     if (!SD.begin(csPin)) {
@@ -66,8 +58,6 @@ void VarLogger::log(const char* var, const char* fun, const char* clas, const ch
     unsigned long log_time = millis() - created_timestamp - time_to_write;
     int event_num = _var2int(std::string(th) + "-" + std::string(clas) + "-" + std::string(fun) + "-" + std::string(var));
 
-    // std::lock_guard<std::mutex> lock(buffer_mutex);
-
     if (prev1_event != event_num) {
         log_seq(event_num, log_time);
         _write_count++;
@@ -78,7 +68,7 @@ void VarLogger::log(const char* var, const char* fun, const char* clas, const ch
         unsigned long start_time = millis();
         write_data();
         time_to_write += millis() - start_time;
-        data1.clear();
+        // data1.clear();
     }
 
     if(millis() - last_flush_time >= flushInterval) {
@@ -131,101 +121,115 @@ void VarLogger::log_seq(int event, unsigned long log_time) {
 }
 
 void VarLogger::generateFileNames() {
-    while (SD.exists("/trace" + String(cur_file) + ".txt")) {
+    while (SD.exists("/trace" + String(cur_file) + ".json")) {
         cur_file++;
     }
     trace_name = "trace" + std::to_string(cur_file);
-    write_name = "log" + std::to_string(cur_file);
-
+    write_name = "varlist" + std::to_string(cur_file);
 }
 
-//For SD card, writing into a file and saving them
 void VarLogger::write_data() {
     if (!sdInitialized) {
         Serial.println("SD Card not initialized!");
         return;
     }
+    if(save_buffer == 0) {
+      return;
+    }
 
     int retries = 3;  
     bool writeSuccess = false;
 
-    // std::lock_guard<std::mutex> lock(buffer_mutex);
-
+    // Write trace data into SD card
     while(retries > 0 && !writeSuccess) {
-      File traceFile = SD.open(("/" + trace_name + ".txt").c_str(), FILE_WRITE);
-      if (traceFile) {
-          StaticJsonDocument<1024> jsonDoc;
-          if (save_buffer == 1) {
-              for (auto &entry : data1) {
-                  JsonArray array = jsonDoc.createNestedArray();
-                  array.add(entry.first);
-                  array.add(entry.second);
-              }
-              serializeJson(jsonDoc, traceFile);
-              traceFile.close();
-              data1.clear();
-              data1.resize(TRACE_LENGTH, {0, 0}); //Reinitialize to trace length
-              save_buffer = 0;
-              writeSuccess = true;
-          } else if (save_buffer == 2) {
-              for (auto &entry : data2) {
-                  JsonArray array = jsonDoc.createNestedArray();
-                  array.add(entry.first);
-                  array.add(entry.second);
-              }
-              serializeJson(jsonDoc, traceFile);
-              traceFile.close();
-              data2.clear();
-              data2.resize(TRACE_LENGTH, {0, 0}); //Reinitialize to trace length
-              save_buffer = 0;
-              writeSuccess = true;
-          } else {
+        File traceFile = SD.open(("/" + trace_name + ".json").c_str(), FILE_WRITE);
+        if (traceFile) {
+            StaticJsonDocument<4096> jsonDoc;
+            JsonArray array = jsonDoc.to<JsonArray>(); 
+
+            if (save_buffer == 1) {
+                for (auto &entry : data1) {
+                    JsonArray nested = array.createNestedArray();
+                    nested.add(entry.first);   // event_id
+                    nested.add(entry.second);  // timestamp
+                }
+                data1.resize(TRACE_LENGTH, {0, 0});
+                //save_buffer = 0;
+            } else if (save_buffer == 2) {
+                for (auto &entry : data2) {
+                    JsonArray nested = array.createNestedArray();
+                    nested.add(entry.first);
+                    nested.add(entry.second);
+                }
+                data2.resize(TRACE_LENGTH, {0, 0});
+                //save_buffer = 0;
+            }
+
+            serializeJson(jsonDoc, traceFile);  
             traceFile.close();
             writeSuccess = true;
-          }
-      } else {
-        Serial.println("Error writing trace file, retrying...");
-        retries--;
-        delay(100);
-      }
+
+
+            Serial.print("[OK] Trace file written: ");
+            Serial.println(traceFile);
+            Serial.print("TRACE DATA: ");
+            serializeJson(jsonDoc, Serial);
+            Serial.println();
+
+        } else {
+            Serial.println("Error writing trace file, retrying...");
+            retries--;
+            delay(100);
+        }
     }
 
     if(!writeSuccess) {
-      Serial.println("Failed to write trace file after 3 attempts");
-      return;
+        Serial.println("Failed to write trace file after 3 attempts");
+        return;
     }
 
     retries = 3;
     writeSuccess = false;
 
     while(retries > 0 && !writeSuccess) {
-      File varFile = SD.open(("/varlist" + std::to_string(cur_file) + ".txt").c_str(), FILE_WRITE);
-      if (varFile) {
-          StaticJsonDocument<1024> jsonDoc;
-          for (auto &entry : _vardict) {
-              jsonDoc[entry.first] = entry.second;
-          }
-          serializeJson(jsonDoc, varFile);
-          varFile.close();
-          writeSuccess = true;
-      } else {
-        Serial.println("Error writing varlist file, retrying...");
-        retries--;
-        delay(100);
-      }
+        File varFile = SD.open(("/" + write_name + ".json").c_str(), FILE_WRITE);
+        if (varFile) {
+            StaticJsonDocument<2048> jsonDoc;
+            for (auto &entry : _vardict) {
+                jsonDoc[entry.first] = entry.second;
+            }
+            serializeJson(jsonDoc, varFile);
+            varFile.close();
+            writeSuccess = true;
+
+            Serial.print("[OK] Varlist file written: ");
+            Serial.println(varFile);
+            Serial.print("VARLIST DATA: ");
+            serializeJson(jsonDoc, Serial);
+            Serial.println();
+        } else {
+            Serial.println("Error writing varlist file, retrying...");
+            retries--;
+            delay(100);
+        }
     }
 
     if(!writeSuccess) {
-      Serial.println("Failed to write varlist file after 3 attempts.");
-      return;
+        Serial.println("Failed to write varlist file after 3 attempts.");
+        return;
     }
+  save_buffer = 0;
     cur_file++;
-    generateFileNames(); //For getting the next trace and log file names
+    generateFileNames();
 }
 
 
+
+
 void VarLogger::flush() {
-  write_data();
+  if(save_buffer != 0) {
+    write_data();
+  }
 }
 
 void VarLogger::save() {
@@ -255,12 +259,10 @@ void VarLogger::traceback(std::string exc) {
 
     File traceFile = SD.open("/traceback.txt", FILE_WRITE);
     if (traceFile) {
-        traceFile.seek(traceFile.size());  // Move to the end of the file
+        traceFile.seek(traceFile.size());  
         traceFile.println((std::to_string(millis()) + ": Exception - " + exc).c_str());
         traceFile.close();
     } else {
         Serial.println("Error opening traceback.txt for appending.");
     }
 }
-
-
